@@ -1,7 +1,21 @@
 import pool from './db.js';
 import validator from "validator";
 import bcrypt from "bcryptjs";
+import jwt from 'jsonwebtoken';
 
+
+export const getUser = async (id) => {
+   if(parseInt(id)==NaN){
+      throw new Error('Invalid id');
+   }
+
+   const [user] = await pool.query('SELECT * FROM tbluser where id = ?',
+   [id]
+   );
+   return user;   
+}
+
+//register function
 export const createUser = async (email, password) => {
     if (email == ""){
         throw new Error('Invalid Email');
@@ -14,9 +28,11 @@ export const createUser = async (email, password) => {
     const [user] = await pool.query('SELECT * FROM tbluser where email = ?',
     [email]
     )
+
+   
     
 
-    if(user.length > 0){
+    if(user.length === 1){
         throw new Error('An account is already created with that email')
      }
 
@@ -39,4 +55,28 @@ export const createUser = async (email, password) => {
      return newUser.insertId;
 }
 
+//login function
+export const login = async (email, password) => {
+   if (email == "" || password == ""){
+      throw new Error('Email and Password are required');
+   }
+   const [user] = await pool.query('SELECT * FROM tbluser where email = ?',
+   [email]
+   );
 
+   if(user.length === 0){
+      throw new Error(`An account with an email:${email} does not exist`);
+   }
+   
+   if(!bcrypt.compareSync(password, user[0].password)){
+      throw new Error('Incorrect Password');
+   }
+
+   //generate Token
+   const token = jwt.sign({id: user[0].id },process.env.SECRET,{
+      expiresIn: '1d'
+   });
+
+   return token;
+  
+}
